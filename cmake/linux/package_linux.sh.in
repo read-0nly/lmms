@@ -41,7 +41,7 @@ function skipped {
 }
 
 # Blindly assume system arch is appimage arch
-ARCH=$(arch)
+ARCH=$(uname -m)
 export ARCH
 
 # Check for problematic install locations
@@ -62,13 +62,13 @@ echo -e "\nDownloading linuxdeployqt to ${LINUXDEPLOYQT}..."
 if env -i which linuxdeployqt > /dev/null 2>&1; then
 	skipped "System already provides this utility"
 else
-	filename="linuxdeployqt-continuous-$(uname -p).AppImage"
+	filename="linuxdeployqt-continuous-$(uname -m).AppImage"
 	url="https://github.com/probonopd/linuxdeployqt/releases/download/continuous/$filename"
 	down_file="$(pwd)/$filename"
 	if [ ! -f "$LINUXDEPLOYQT" ]; then
 		ln -s "$down_file" "$LINUXDEPLOYQT"
 	fi
-	echo "   [.......] Downloading ($(uname -p)): ${url}"
+	echo "   [.......] Downloading ($(uname -m)): ${url}"
 	wget -N -q "$url" || (rm "$filename" && false)
 	chmod +x "$LINUXDEPLOYQT"
 	success "Downloaded $LINUXDEPLOYQT"
@@ -108,7 +108,7 @@ chmod +x "${APPDIR}usr/bin/lmms"
 unset LD_LIBRARY_PATH
 
 # Ensure linuxdeployqt can find shared objects
-export LD_LIBRARY_PATH="${APPDIR}"usr/lib/lmms/:"${APPDIR}"usr/lib/lmms/optional:"$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="${APPDIR}"usr/lib/:"${APPDIR}"usr/lib/lmms/:"${APPDIR}"usr/lib/lmms/optional:"$LD_LIBRARY_PATH"
 
 # Move executables so linuxdeployqt can find them
 ZYNLIB="${APPDIR}usr/lib/lmms/RemoteZynAddSubFx"

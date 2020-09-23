@@ -29,6 +29,7 @@
 #include <QtCore/QVector>
 #include <QtCore/QList>
 #include <QWidget>
+#include <QSize>
 #include <QColor>
 #include <QMimeData>
 
@@ -206,6 +207,9 @@ class TrackContentObjectView : public selectableObject, public ModelView
 	Q_PROPERTY( QColor textShadowColor READ textShadowColor WRITE setTextShadowColor )
 	Q_PROPERTY( QColor BBPatternBackground READ BBPatternBackground WRITE setBBPatternBackground )
 	Q_PROPERTY( bool gradient READ gradient WRITE setGradient )
+	// We have to use a QSize here because using QPoint isn't supported.
+	// width -> x, height -> y
+	Q_PROPERTY( QSize mouseHotspotHand WRITE setMouseHotspotHand )
 
 public:
 	TrackContentObjectView( TrackContentObject * tco, TrackView * tv );
@@ -240,10 +244,25 @@ public:
 	void setTextShadowColor( const QColor & c );
 	void setBBPatternBackground( const QColor & c );
 	void setGradient( const bool & b );
+	void setMouseHotspotHand(const QSize & s);
 
 	// access needsUpdate member variable
 	bool needsUpdate();
 	void setNeedsUpdate( bool b );
+
+	// Method to get a QVector of TCOs to be affected by a context menu action
+	QVector<TrackContentObjectView *> getClickedTCOs();
+
+	// Methods to remove, copy, cut, paste and mute a QVector of TCO views
+	void copy( QVector<TrackContentObjectView *> tcovs );
+	void cut( QVector<TrackContentObjectView *> tcovs );
+	void paste();
+	// remove and toggleMute are static because they don't depend
+	// being called from a particular TCO view, but can be called anywhere as long
+	// as a valid TCO view list is given, while copy/cut require an instance for
+	// some metadata to be written to the clipboard.
+	static void remove( QVector<TrackContentObjectView *> tcovs );
+	static void toggleMute( QVector<TrackContentObjectView *> tcovs );
 
 public slots:
 	virtual bool close();
@@ -252,11 +271,21 @@ public slots:
 	void update() override;
 
 protected:
+	enum ContextMenuAction
+	{
+		Remove,
+		Cut,
+		Copy,
+		Paste,
+		Mute
+	};
+
 	virtual void constructContextMenu( QMenu * )
 	{
 	}
 
 	void contextMenuEvent( QContextMenuEvent * cme ) override;
+	void contextMenuAction( ContextMenuAction action );
 	void dragEnterEvent( QDragEnterEvent * dee ) override;
 	void dropEvent( QDropEvent * de ) override;
 	void leaveEvent( QEvent * e ) override;
@@ -316,8 +345,10 @@ private:
 	QColor m_textShadowColor;
 	QColor m_BBPatternBackground;
 	bool m_gradient;
+	QSize m_mouseHotspotHand; // QSize must be used because QPoint isn't supported by property system
+	bool m_cursorSetYet;
 
- 	bool m_needsUpdate;
+	bool m_needsUpdate;
 	inline void setInitialPos( QPoint pos )
 	{
 		m_initialMousePos = pos;
@@ -363,7 +394,9 @@ public:
 	}
 
 	bool canPasteSelection( MidiTime tcoPos, const QDropEvent *de );
+	bool canPasteSelection( MidiTime tcoPos, const QMimeData *md, bool allowSameBar = false );
 	bool pasteSelection( MidiTime tcoPos, QDropEvent * de );
+	bool pasteSelection( MidiTime tcoPos, const QMimeData * md, bool skipSafetyCheck = false );
 
 	MidiTime endPosition( const MidiTime & posStart );
 
@@ -384,6 +417,13 @@ public slots:
 	void changePosition( const MidiTime & newPos = MidiTime( -1 ) );
 
 protected:
+	enum ContextMenuAction
+	{
+		Paste
+	};
+
+	void contextMenuEvent( QContextMenuEvent * cme ) override;
+	void contextMenuAction( QContextMenuEvent * cme, ContextMenuAction action );
 	void dragEnterEvent( QDragEnterEvent * dee ) override;
 	void dropEvent( QDropEvent * de ) override;
 	void mousePressEvent( QMouseEvent * me ) override;
@@ -452,8 +492,6 @@ private slots:
 	void clearTrack();
 
 private:
-	static QPixmap * s_grip;
-
 	TrackView * m_trackView;
 
 	QPushButton * m_trackOps;
